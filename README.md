@@ -106,7 +106,7 @@ python web.py 8080     # 指定端口
   - 策略模式：`Planner` 与 Agent 解耦，规则规划器可整体替换为 LLM 规划器
   - 分层异常：`ToolError → ToolParameterError / ToolExecutionError`
 
-## 五、面试可以讲解的要点
+## 五、要点
 
 ### 1. ReAct 范式的本质是什么？
 
@@ -139,7 +139,7 @@ ReAct = Reasoning + Acting，关键不是"提示词格式"，而是**闭环控�
 - **可观测性**：完整打印每一轮 Thought / Action / Observation / Final Answer，这正是调试 Agent 的标准姿势；
 - **双入口架构**：CLI 与 Web 共用同一个 Agent 内核——`Agent.run()` 在打印控制台日志的同时产出结构化事件流（`last_trace`），`web.py` 用标准库 `http.server` 将其暴露为 JSON 接口，前端原生 JS 渲染 ReAct 时间线，无需任何前端框架。
 
-### 6. 可以延伸的演进方向（被问"如何改进"时回答）
+### 6. 可以延伸的演进方向
 
 - 用 LLMPlanner 替换规则 Planner，工具清单自动注入系统提示词；
 - 增加执行期反思（Reflection）：Observation 失败后自动修正参数重试；
