@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
+  <title>简易 ReAct Agent · 本地控制台</title>
+  <style>
+    /* ===== 主题变量与全局 ===== */
+    :root {
+      --bg: #0d1017;
+      --bg2: #12161f;
+      --panel: #161b26;
+      --card: #1a2030;
+      --line: #262d3f;
+      --text: #e7eaf2;
+      --muted: #8a93a8;
+      --accent: #5b8cff;
+      --accent2: #7c5bff;
+      --ok: #37c38a;
+      --bad: #ff6b6b;
+      --warn: #ffb454;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    }
+
+    /* ===== 顶部 ===== */
+    header { padding: 14px 22px; border-bottom: 1px solid var(--line); background: rgba(22, 27, 38, .8); }
+    header h1 { font-size: 18px; letter-spacing: 1px; }
+    header p { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    #toolList { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .toolchip {
+      display: inline-flex; gap: 6px; align-items: center;
+      font-size: 12px; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 20px;
+      padding: 3px 10px; background: var(--panel);
+    }
+    .toolchip b { color: var(--accent); font-weight: 600; }
+
+    /* ===== 对话区 ===== */
+    main { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+    .hint { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+    .msg { display: flex; }
+    .msg.user { justify-content: flex-end; }
+    .msg .bubble {
+      background: linear-gradient(135deg, #3b6fe0, #5b8cff);
+      padding: 10px 14px; border-radius: 14px 14px 4px 14px;
+      max-width: 70%; font-size: 14px; line-height: 1.6; white-space: pre-wrap;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px 16px;
+      max-width: 860px; width: 100%;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .planline { color: var(--muted); font-size: 13px; }
+    .planline b { color: var(--accent2); }
+
+    /* 每一轮 ReAct 卡片 */
+    .round { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: rgba(255, 255, 255, .02); }
+    .round.fail { border-color: rgba(255, 107, 107, .45); }
+    .rtitle { font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 4px; }
+    .row { display: flex; gap: 10px; margin: 6px 0; align-items: flex-start; }
+    .tag {
+      flex: 0 0 auto; font-size: 11px; padding: 2px 8px;
+      border-radius: 10px; margin-top: 2px; letter-spacing: .5px;
+    }
+    .tag.t { background: rgba(124, 91, 255, .15); color: #a78bfa; border: 1px solid rgba(124, 91, 255, .4); }
+    .tag.a { background: rgba(91, 140, 255, .15); color: #7ea6ff; border: 1px solid rgba(91, 140, 255, .4); }
+    .tag.o { background: rgba(55, 195, 138, .12); color: var(--ok); border: 1px solid rgba(55, 195, 138, .4); }
+    .tag.o.err { background: rgba(255, 107, 107, .12); color: var(--bad); border-color: rgba(255, 107, 107, .4); }
+    .content { font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .content.mono {
+      font-family: Consolas, Menlo, monospace; color: #cdd6f4;
+      background: rgba(0, 0, 0, .25); padding: 6px 10px; border-radius: 8px; flex: 1;
+    }
+
+    /* 最终结论 / 警告 / 等待 */
+    .final {
+      border: 1px solid rgba(55, 195, 138, .45); background: rgba(55, 195, 138, .08);
+      color: #c9f5e2; padding: 10px 14px; border-radius: 10px; font-size: 14px;
+    }
+    .final .ft { display: block; font-size: 11px; color: var(--ok); letter-spacing: 1px; margin-bottom: 4px; }
+    .warn {
+      border: 1px solid rgba(255, 180, 84, .45); background: rgba(255, 180, 84, .08);
+      color: #ffd9a0; padding: 10px 14px; border-radius: 10px; font-size: 13px;
+    }
+    .pending { color: var(--muted); font-size: 13px; }
+
+    /* ===== 底部输入区 ===== */
+    footer { border-top: 1px solid var(--line); padding: 12px 22px 16px; background: rgba(22, 27, 38, .8); }
+    .chips { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .chips span { color: var(--muted); font-size: 12px; }
+    .chips button {
+      font-size: 12px; color: var(--text); background: var(--panel);
+      border: 1px solid var(--line); border-radius: 16px;
+      padding: 4px 12px; cursor: pointer;
+    }
+    .chips button:hover { border-color: var(--accent); color: #fff; }
+    .inputRow { display: flex; gap: 10px; }
+    #taskInput {
+      flex: 1; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: 11px 14px; color: var(--text);
+      font-size: 14px; outline: none;
+    }
+    #taskInput:focus { border-color: var(--accent); }
+    #sendBtn {
+      background: linear-gradient(135deg, #3b6fe0, #5b8cff);
+      color: #fff; border: none; border-radius: 10px;
+      padding: 0 22px; font-size: 14px; cursor: pointer;
+    }
+    #sendBtn:disabled { opacity: .5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>简易 ReAct 任务规划 Agent</h1>
+      <p>纯 Python 标准库 · 完全离线 · Thought → Action → Observation</p>
+    </div>
+    <div id="toolList"></div>
+  </header>
+
+  <main id="chat">
+    <div class="hint">在下方输入任务开始体验，或点击底部示例按钮快速填充</div>
+  </main>
+
+  <footer>
+    <div class="chips" id="chips">
+      <span>示例：</span>
+      <button data-task="请对 12、7.5、3、20 这几个数字求和。">数字求和</button>
+      <button data-task='请统计下面文本的单词数："ReAct means Reasoning and Acting. 推理与行动结合。"'>单词统计</button>
+      <button data-task='请统计文本 "Agent tools memory planning" 的单词数，并把结果保存到 result.txt。'>统计并保存</button>
+      <button data-task="请计算 (3 + 5) * 2 - 10 / 4 等于多少">四则运算</button>
+      <button data-task="现在几点了？今天星期几？">时间查询</button>
+      <button data-task="你能做什么？">能力问答</button>
+    </div>
+    <div class="inputRow">
+      <input id="taskInput" type="text" autocomplete="off"
+             placeholder="输入任务后回车，例如：请对 100、200、300 求和，并把结果保存到 total.txt" />
+      <button id="sendBtn">发送</button>
+    </div>
+  </footer>
+
+  <script>
+    "use strict";
+
+    var chat = document.getElementById("chat");
+    var input = document.getElementById("taskInput");
+    var sendBtn = document.getElementById("sendBtn");
+
+    /** 创建 DOM 元素；动态文本一律走 textContent，天然防 XSS 注入 */
+    function el(tag, className, text) {
+      var node = document.createElement(tag);
+      if (className) { node.className = className; }
+      if (text !== undefined) { node.textContent = text; }
+      return node;
+    }
+
+    function scrollBottom() { chat.scrollTop = chat.scrollHeight; }
+
+    function addUserMsg(text) {
+      var wrap = el("div", "msg user");
+      wrap.appendChild(el("div", "bubble", text));
+      chat.appendChild(wrap);
+      scrollBottom();
+    }
+
+    /** 一行「标签 + 内容」 */
+    function row(cls, label, text, mono) {
+      var r = el("div", "row");
+      r.appendChild(el("span", "tag " + cls, label));
+      var content = el("div", "content" + (mono ? " mono" : ""), text);
+      r.appendChild(content);
+      return r;
+    }
+
+    /** 渲染一轮 ReAct：思考 / 行动 / 观测 */
+    function roundBlock(ev) {
+      var box = el("div", "round" + (ev.success ? "" : " fail"));
+      box.appendChild(el("div", "rtitle", "第 " + ev.index + " 轮 ReAct"));
+      box.appendChild(row("t", "Thought 思考", ev.thought));
+      box.appendChild(row("a", "Action 行动", ev.action, true));
+      box.appendChild(row(ev.success ? "o" : "o err", "Observation 观测", ev.observation));
+      return box;
+    }
+
+    /** 渲染 Agent 回复卡片（结构化事件流） */
+    function addAgentCard(events) {
+      var wrap = el("div", "msg agent");
+      var card = el("div", "card");
+      events.forEach(function (ev) {
+        if (ev.type === "plan") {
+          var line = el("div", "planline");
+          var b = document.createElement("b");
+          b.textContent = "任务拆解";
+          line.appendChild(b);
+          line.appendChild(document.createTextNode("：共 " + ev.steps + " 个步骤"));
+          card.appendChild(line);
+        } else if (ev.type === "plan_error") {
+          card.appendChild(el("div", "warn", ev.message));
+        } else if (ev.type === "step") {
+          card.appendChild(roundBlock(ev));
+        } else if (ev.type === "final") {
+          var fin = el("div", "final");
+          fin.appendChild(el("span", "ft", "FINAL ANSWER 最终结论"));
+          fin.appendChild(document.createTextNode(ev.answer));
+          card.appendChild(fin);
+        }
+      });
+      wrap.appendChild(card);
+      chat.appendChild(wrap);
+      scrollBottom();
+    }
+
+    function showLoading() {
+      var wrap = el("div", "msg agent");
+      var card = el("div", "card");
+      card.appendChild(el("div", "pending", "Agent 思考中，请稍候…"));
+      wrap.appendChild(card);
+      chat.appendChild(wrap);
+      scrollBottom();
+      return wrap;
+    }
+
+    function addError(text) {
+      var wrap = el("div", "msg agent");
+      var card = el("div", "card");
+      card.appendChild(el("div", "warn", text));
+      wrap.appendChild(card);
+      chat.appendChild(wrap);
+      scrollBottom();
+    }
+
+    /** 发送任务到本地 Agent 服务 */
+    function runTask(task) {
+      task = (task || "").trim();
+      if (!task) { return; }
+      addUserMsg(task);
+      input.value = "";
+
+      var loading = showLoading();
+      sendBtn.disabled = true;
+      input.disabled = true;
+
+      fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task: task })
+      })
+        .then(function (resp) {
+          return resp.json().then(function (data) {
+            return { ok: resp.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          loading.remove();
+          if (!result.ok) {
+            addError(result.data.error || ("请求失败，状态码 " + result.status));
+          } else {
+            addAgentCard(result.data.events || []);
+          }
+        })
+        .catch(function (err) {
+          loading.remove();
+          addError("无法连接本地服务，请确认 web.py 正在运行：" + err.message);
+        })
+        .finally(function () {
+          sendBtn.disabled = false;
+          input.disabled = false;
+          input.focus();
+        });
+    }
+
+    /** 事件绑定 */
+    sendBtn.addEventListener("click", function () { runTask(input.value); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { runTask(input.value); }
+    });
+    document.getElementById("chips").addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-task]");
+      if (btn) {
+        input.value = btn.getAttribute("data-task");
+        input.focus();
+      }
+    });
+
+    /** 启动时加载工具清单 */
+    fetch("/api/tools")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var box = document.getElementById("toolList");
+        (data.tools || []).forEach(function (t) {
+          var chip = el("span", "toolchip");
+          var name = document.createElement("b");
+          name.textContent = t.name;
+          chip.appendChild(name);
+          chip.appendChild(document.createTextNode(" · " + t.description));
+          var tip = Object.keys(t.params || {})
+            .map(function (k) { return k + ": " + t.params[k]; })
+            .join("\n");
+          chip.title = tip;
+          box.appendChild(chip);
+        });
+      })
+      .catch(function () { /* 服务未启动时静默忽略 */ });
+
+    input.focus();
+  </script>
+</body>
+</html>
